@@ -1,0 +1,183 @@
+.capas-container {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  z-index: 100;
+}
+
+.capas-sidebar {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  width: 250px;
+  transition: width 0.3s ease;
+}
+
+.capas-sidebar.collapsed {
+  width: 50px;
+}
+
+.capas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border-bottom: 1px solid #ddd;
+}
+
+.capas-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.toggle-sidebar-btn,
+.close-sidebar-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 50%;
+}
+
+.toggle-sidebar-btn:hover,
+.close-sidebar-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.capas-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.capas-actions {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.crear-capa-btn {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.crear-capa-btn:hover {
+  background-color: #45a049;
+}
+
+.ver-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+.capas-filter-group {
+  width: 100%;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.capas-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.capa-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #e0e0e0;
+  transition: transform 0.2s;
+}
+
+.capa-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.capa-info {
+  flex-grow: 1;
+}
+
+.capa-nombre {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.visibility-toggle {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 50%;
+}
+
+.visibility-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.loading-indicator,
+.error-message,
+.no-results {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+.error-message {
+  color: #e53935;
+}
+
+/* Para el panel de perforaciones junto al panel de capas */
+.perforaciones-panel {
+  position: relative;
+  height: 100%;
+  background-color: white;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 99;
+}

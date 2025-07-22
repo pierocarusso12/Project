@@ -4,7 +4,7 @@ import './ModalCronograma.css';
 import Swal from 'sweetalert2';
 import ModalSeleccionSupervisores from './ModalSeleccionSupervisores';
 
-
+// Colores para supervisores (fuera del componente para evitar recreación)
 const COLORES_SUPERVISORES = ['#FF5733', '#33A1FF', '#33FF57', '#FF33F1', '#33FFF1', '#FFD700', '#8A2BE2'];
 
 const ModalCronograma = ({ 
@@ -42,7 +42,7 @@ const ModalCronograma = ({
   // Supervisores con sus asignaciones por máquina
   const [supervisoresPorMaquina, setSupervisoresPorMaquina] = useState({});
 
-
+  // AGREGAR ESTOS NUEVOS ESTADOS:
 const [contabilizacionesCalculadas, setContabilizacionesCalculadas] = useState(null);
 const [mostrarContabilizaciones, setMostrarContabilizaciones] = useState(false);
   
@@ -247,7 +247,7 @@ const [mostrarContabilizaciones, setMostrarContabilizaciones] = useState(false);
 
 
 
-
+  // Función para analizar cobertura
 // Función para analizar cobertura
 const analizarCobertura = useCallback((cronograma, maquina, supervisores, totalDias) => {
   const analisis = {
@@ -465,7 +465,8 @@ const analizarCobertura = useCallback((cronograma, maquina, supervisores, totalD
   }, [analizarCobertura, calcularEstadisticas, rosterInfo]);
 
 
-// Función para calcular contabilizaciones CAMBIAR AQUI
+
+// Función para calcular contabilizaciones
 const calcularContabilizaciones = useCallback((cronograma, maquinas, supervisoresPorMaquina) => {
   const contabilizaciones = {};
   
@@ -516,14 +517,25 @@ const calcularContabilizaciones = useCallback((cronograma, maquinas, supervisore
       }
       
       // Contabilización Staff
-      const movilizaciones = subidasReales + bajadasReales; // Siempre será par
+      const movilizaciones = subidasReales + bajadasReales;
       const inducciones = stats.induccion;
       const diasTrabajo = stats.perforaciones;
       
+      // USAR EL CARGO REAL DEL SUPERVISOR QUE VIENE DEL BACKEND
+      let cargoReal = supervisor.cargo || 'Sin cargo';
+      
+      // Si el cargo es 'Sin cargo', usar el nombre con indicador de líder si aplica
+      if (cargoReal === 'Sin cargo') {
+        cargoReal = supervisor.nombre_completo || supervisor.nombre || 'Sin nombre';
+        if (supervisor.supervisor_orden === 1) {
+          cargoReal += ' (Líder)';
+        }
+      }
+      
       contabilizaciones[maquina.id].staff.push({
         supervisorId: supervisor.id,
-        supervisorNombre: supervisor.nombre,
-        cargo: idx === 0 ? 'ING STAFF III' : idx === 1 ? 'ING II' : 'ING I',
+        supervisorNombre: supervisor.nombre_completo || supervisor.nombre || 'Sin nombre',
+        cargo: cargoReal,
         movilizaciones,
         inducciones,
         diasTrabajo
@@ -535,8 +547,8 @@ const calcularContabilizaciones = useCallback((cronograma, maquinas, supervisore
       
       contabilizaciones[maquina.id].reembolsables.push({
         supervisorId: supervisor.id,
-        supervisorNombre: supervisor.nombre,
-        cargo: idx === 0 ? 'ING STAFF III' : idx === 1 ? 'ING II' : 'ING I',
+        supervisorNombre: supervisor.nombre_completo || supervisor.nombre || 'Sin nombre',
+        cargo: cargoReal,
         hospedaje,
         alimentacion,
         camioneta: maquina.duracionTotal
@@ -547,7 +559,7 @@ const calcularContabilizaciones = useCallback((cronograma, maquinas, supervisore
   return contabilizaciones;
 }, [calcularEstadisticas]);
 
-  // Algoritmo principal para 2 días de inducción CAMBIAR AQUI
+  // Algoritmo principal para 2 días de inducción
 const calcularCronogramaAutomatico = useCallback(() => {
   const supervisoresDisponibles = Object.values(supervisoresPorMaquina).flat();
 
@@ -561,17 +573,6 @@ const calcularCronogramaAutomatico = useCallback(() => {
   const diasInduccion = rosterInfo.diasInduccion;
   
   console.log('Configuración:', { diasTrabajo, diasDescanso, diasInduccion });
-
-  // Validar que sea para 2 días de inducción
-  if (diasInduccion !== 2) {
-    Swal.fire({
-      title: 'Advertencia',
-      text: `Este algoritmo está optimizado para 2 días de inducción. Usted tiene configurado ${diasInduccion} días.`,
-      icon: 'warning',
-      confirmButtonText: 'Entendido'
-    });
-    return;
-  }
 
 
 
@@ -597,218 +598,105 @@ const calcularCronogramaAutomatico = useCallback(() => {
 
     // === PATRÓN INICIAL ESPECÍFICO ===
     
-    // SUPERVISOR 1 (S1)
-    // D0: Sube → D1-D2: Inducción → D3-D14: Trabajo (12 días) → D15: Baja
-    nuevoCronograma[`${maquina.id}-0`][0] = 'subida';
-    nuevoCronograma[`${maquina.id}-0`][1] = 'induccion';
-    nuevoCronograma[`${maquina.id}-0`][2] = 'induccion';
-    for (let dia = 3; dia <= 14 && dia <= totalDias; dia++) {
-      nuevoCronograma[`${maquina.id}-0`][dia] = 'perforaciones';
-    }
-    if (15 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-0`][15] = 'bajada';
-      // Descanso: 5 días (trabajó 12 días → 12/2 = 6, pero régimen es 14x7)
-      for (let dia = 16; dia <= 20 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-0`][dia] = 'descanso';
-      }
+    // ==== Supervisor 1  ====
+    const s1 = `${maquina.id}-0`;
+    let diaS1 = 0;
+    nuevoCronograma[s1][diaS1++] = 'subida';
+    for (let i = 0; i < diasInduccion; i++) nuevoCronograma[s1][diaS1++] = 'induccion';
+    for (let i = 0; i < 14 - diasInduccion; i++) nuevoCronograma[s1][diaS1++] = 'perforaciones';
+
+    while (diaS1 < totalDias) {
+      nuevoCronograma[s1][diaS1++] = 'bajada';
+      for (let i = 0; i < 5; i++) nuevoCronograma[s1][diaS1++] = 'descanso';
+      nuevoCronograma[s1][diaS1++] = 'subida';
+      for (let i = 0; i < 14; i++) nuevoCronograma[s1][diaS1++] = 'perforaciones';
     }
 
-    // SUPERVISOR 2 (S2)
-    // D0: Sube → D1-D2: Inducción → D3-D9: Trabajo (7 días) → D10: Baja
-    nuevoCronograma[`${maquina.id}-1`][0] = 'subida';
-    nuevoCronograma[`${maquina.id}-1`][1] = 'induccion';
-    nuevoCronograma[`${maquina.id}-1`][2] = 'induccion';
-    for (let dia = 3; dia <= 9 && dia <= totalDias; dia++) {
-      nuevoCronograma[`${maquina.id}-1`][dia] = 'perforaciones';
+    // ==== Supervisor 2  ====
+    const s2 = `${maquina.id}-1`;
+    let diaS2 = 0;
+    nuevoCronograma[s2][diaS2++] = 'subida';
+    for (let i = 0; i < diasInduccion; i++) nuevoCronograma[s2][diaS2++] = 'induccion';
+    for (let i = 0; i < 9 - diasInduccion; i++) nuevoCronograma[s2][diaS2++] = 'perforaciones';
+    nuevoCronograma[s2][diaS2++] = 'bajada';
+    // ==== Supervisor 3 (entra más tarde) ====
+    const s3 = `${maquina.id}-2`;
+    let diaS3 = diaS2 - (2 + diasInduccion);
+
+    // ==== Supervisor 2  ====
+    for (let i = 0; i < 3; i++) nuevoCronograma[s2][diaS2++] = 'descanso';
+    nuevoCronograma[s2][diaS2++] = 'subida';
+    for (let i = 0; i < 14; i++) nuevoCronograma[s2][diaS2++] = 'perforaciones';
+
+    while (diaS2 < totalDias) {
+      nuevoCronograma[s2][diaS2++] = 'bajada';
+      for (let i = 0; i < 5; i++) nuevoCronograma[s2][diaS2++] = 'descanso';
+      nuevoCronograma[s2][diaS2++] = 'subida';
+      for (let i = 0; i < 14; i++) nuevoCronograma[s2][diaS2++] = 'perforaciones';
     }
-    if (10 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-1`][10] = 'bajada';
-      // Descanso: 3 días (trabajó 7 días → 7/2 = 3.5 → 4 días total con bajada y subida)
-      for (let dia = 11; dia <= 13 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-1`][dia] = 'descanso';
-      }
+    // ==== Supervisor 3 (entra más tarde) ====
+
+    nuevoCronograma[s3][diaS3++] = 'subida';
+    for (let i = 0; i < diasInduccion; i++) nuevoCronograma[s3][diaS3++] = 'induccion';
+    for (let i = 0; i < 14 - diasInduccion; i++) nuevoCronograma[s3][diaS3++] = 'perforaciones';
+
+    while (diaS3 < totalDias) {
+      nuevoCronograma[s3][diaS3++] = 'bajada';
+      for (let i = 0; i < 5; i++) nuevoCronograma[s3][diaS3++] = 'descanso';
+      nuevoCronograma[s3][diaS3++] = 'subida';
+      for (let i = 0; i < 14; i++) nuevoCronograma[s3][diaS3++] = 'perforaciones';
+    }
+        // === CORTAR por permanencia total deseada ===
+    const totalX = (totalDias - diasInduccion) * 2; //POSIBLE PUNTO DE FALLA
+    const conteoX = Array(totalDias).fill(0);
+
+    for (let d = diasInduccion + 1; d < totalDias; d++) {
+      [s1, s2, s3].forEach(sup => {
+        if (nuevoCronograma[sup][d] === 'perforaciones') conteoX[d]++;
+      });
     }
 
-    // SUPERVISOR 3 (S3)
-    // Entra en D8 (2 días antes de que S2 baje) para hacer inducción
-    // D8: Sube → D9-D10: Inducción → D11-D22: Trabajo (12 días) → D23: Baja
-    if (8 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-2`][7] = 'subida';
-    }
-    if (9 <= totalDias) nuevoCronograma[`${maquina.id}-2`][8] = 'induccion';
-    if (10 <= totalDias) nuevoCronograma[`${maquina.id}-2`][9] = 'induccion';
-    for (let dia = 10; dia <= 21 && dia <= totalDias; dia++) {
-      nuevoCronograma[`${maquina.id}-2`][dia] = 'perforaciones';
-    }
-    if (23 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-2`][22] = 'bajada';
-      // Descanso: 5 días
-      for (let dia = 23; dia <= 27 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-2`][dia] = 'descanso';
+    let acumulado = 0;
+    let diaCorte = totalDias;
+    for (let d = diasInduccion + 1; d < totalDias; d++) {
+      if (acumulado + conteoX[d] > totalX) {
+        diaCorte = d;
+        break;
       }
+      acumulado += conteoX[d];
     }
+        // Cortar el cronograma después del día corte
+    [s1, s2, s3].forEach(sup => {
+      if (nuevoCronograma[sup][diaCorte] === 'perforaciones') {
+        nuevoCronograma[sup][diaCorte + 1] = 'bajada';
+      }
+      for (let d = diaCorte + 2; d < totalDias; d++) {
+        delete nuevoCronograma[sup][d];
+      }
+    });
+            // === Revisión final: reemplazo de 'subida' por 'descanso' ===
+    const ultimoDiaUtil = diaCorte;
 
-    // === CICLOS POSTERIORES ===
-    
-    // S2 segundo ciclo: sube en D14
-    if (14 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-1`][14] = 'subida';
-      // Trabajo desde D15 hasta D28 (14 días)
-      for (let dia = 15; dia <= 28 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-1`][dia] = 'perforaciones';
-      }
-      if (29 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-1`][29] = 'bajada';
-        // Descanso: 5 días (trabajó 14 días → 14/2 = 7 días total)
-        for (let dia = 30; dia <= 34 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-1`][dia] = 'descanso';
-        }
-      }
-    }
+    [s1, s2, s3].forEach((sup) => {
+      const cronograma = nuevoCronograma[sup];
+      const diaActual = ultimoDiaUtil;
+      
+      if (cronograma[diaActual] !== 'perforaciones') {
+        if (cronograma[diaActual] === 'subida') {
+          // Verifica que todos los días siguientes estén vacíos o no definidos
+          const diasPosteriores = Object.keys(cronograma)
+            .filter((k) => parseInt(k) > diaActual)
+            .map((k) => cronograma[k]);
 
-    // S1 segundo ciclo: sube en D21
-    if (21 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-0`][21] = 'subida';
-      // Trabajo desde D22 hasta D35 (14 días)
-      for (let dia = 22; dia <= 35 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-0`][dia] = 'perforaciones';
-      }
-      if (36 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-0`][36] = 'bajada';
-        // Descanso: 5 días
-        for (let dia = 37; dia <= 41 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-0`][dia] = 'descanso';
-        }
-      }
-    }
+          const soloVacios = diasPosteriores.every((v) => v === undefined || v === 'vacio');
 
-
-    // S3 segundo ciclo: sube en D28 (cuando S2 baja)
-    if (28 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-2`][28] = 'subida';
-      // Trabajo desde D29 hasta D42 (14 días)
-      for (let dia = 29; dia <= 42 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-2`][dia] = 'perforaciones';
-      }
-      if (43 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-2`][43] = 'bajada';
-        // Descanso: 5 días
-        for (let dia = 44; dia <= 48 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-2`][dia] = 'descanso';
-        }
-      }
-    }
-
-    // S2 tercer ciclo: sube en D35 (anticipándose a la bajada de S1)
-    if (35 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-1`][35] = 'subida';
-      // Trabajo desde D36 hasta D49 (14 días)
-      for (let dia = 36; dia <= 49 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-1`][dia] = 'perforaciones';
-      }
-      if (50 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-1`][50] = 'bajada';
-        // Descanso: 5 días
-        for (let dia = 51; dia <= 55 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-1`][dia] = 'descanso';
-        }
-      }
-    }
-
-    // S1 tercer ciclo: sube en D42 (anticipándose a la bajada de S3)
-    if (42 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-0`][42] = 'subida';
-      // Trabajo desde D43 hasta D56 (14 días)
-      for (let dia = 43; dia <= 56 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-0`][dia] = 'perforaciones';
-      }
-      if (57 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-0`][57] = 'bajada';
-        // Descanso: 5 días
-        for (let dia = 58; dia <= 62 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-0`][dia] = 'descanso';
-        }
-      }
-    }
-
-    // S3 tercer ciclo: sube en D50 (anticipándose a la bajada de S2)
-    if (49 <= totalDias) {
-      nuevoCronograma[`${maquina.id}-2`][49] = 'subida';
-      // Trabajo desde D51 hasta D64 (14 días)
-      for (let dia = 50; dia <= 63 && dia <= totalDias; dia++) {
-        nuevoCronograma[`${maquina.id}-2`][dia] = 'perforaciones';
-      }
-      if (64 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-2`][64] = 'bajada';
-        // Descanso: 5 días
-        for (let dia = 65; dia <= 69 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-2`][dia] = 'descanso';
-        }
-      }
-    }
-
-    // Continuar con más ciclos si es necesario
-    if (totalDias > 70) {
-      // S2 cuarto ciclo
-      if (56 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-1`][56] = 'subida';
-        for (let dia = 57; dia <= 70 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-1`][dia] = 'perforaciones';
-        }
-        if (71 <= totalDias) {
-          nuevoCronograma[`${maquina.id}-1`][71] = 'bajada';
-          for (let dia = 72; dia <= 76 && dia <= totalDias; dia++) {
-            nuevoCronograma[`${maquina.id}-1`][dia] = 'descanso';
+          if (soloVacios) {
+            cronograma[diaActual] = 'descanso';
           }
         }
       }
-
-      // S1 cuarto ciclo
-      if (63 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-0`][63] = 'subida';
-        for (let dia = 64; dia <= 77 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-0`][dia] = 'perforaciones';
-        }
-        if (78 <= totalDias) {
-          nuevoCronograma[`${maquina.id}-0`][78] = 'bajada';
-          for (let dia = 79; dia <= 83 && dia <= totalDias; dia++) {
-            nuevoCronograma[`${maquina.id}-0`][dia] = 'descanso';
-          }
-        }
-      }
-
-      // S3 cuarto ciclo
-      if (70 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-2`][70] = 'subida';
-        for (let dia = 71; dia <= 84 && dia <= totalDias; dia++) {
-          nuevoCronograma[`${maquina.id}-2`][dia] = 'perforaciones';
-        }
-        if (85 <= totalDias) {
-          nuevoCronograma[`${maquina.id}-2`][85] = 'bajada';
-          for (let dia = 86; dia <= 90 && dia <= totalDias; dia++) {
-            nuevoCronograma[`${maquina.id}-2`][dia] = 'descanso';
-          }
-        }
-      }
-
-      // S2 quinto ciclo (si es necesario)
-      if (77 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-1`][77] = 'subida';
-        for (let dia = 78; dia <= totalDias && dia <= 91; dia++) {
-          nuevoCronograma[`${maquina.id}-1`][dia] = 'perforaciones';
-        }
-      }
-
-      // S1 quinto ciclo (si es necesario)
-      if (84 <= totalDias) {
-        nuevoCronograma[`${maquina.id}-0`][84] = 'subida';
-        for (let dia = 85; dia <= totalDias && dia <= 98; dia++) {
-          nuevoCronograma[`${maquina.id}-0`][dia] = 'perforaciones';
-        }
-      }
-    }
+    });
   });
-
 setCronograma(nuevoCronograma);
 
 // Calcular contabilizaciones
@@ -1168,9 +1056,9 @@ const guardarCronograma = async () => {
                                         style={{ backgroundColor: supervisor.color }}
                                       ></div>
                                       <div className="supervisor-name">
-                                        {supervisor.nombre}
-                                        {supervisor.supervisor_orden === 1 && ' (Líder)'}
-                                      </div>
+  {supervisor.cargo}  {/* Ahora mostrará "Supervisor", "Jefe de Turno", etc. */}
+  {supervisor.supervisor_orden === 1 && ' (Líder)'}
+</div>
                                     </div>
                                     <span style={{ fontSize: '12px', color: '#666' }}>
                                       {supervisor.tipo_seleccion}
